@@ -1,5 +1,5 @@
 all:
-	rm ./lex ./lex.yy.c
+	
 	
 	flex analise/lexico.l
 	

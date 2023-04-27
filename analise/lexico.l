@@ -3,11 +3,12 @@
 %}
 
 digit  [0-9]
-number [0-9]+[\t\n\ ]
-float  [0-9]+\.[0-9]*[\t\n\ ]
-identifier [a-zA-Z][a-zA-Z0-9]*[\t\n\ ]
+basic_sep [\t\n\ ]
+number {digit}+{basic_sep}
+float  {digit}+\.{digit}*{basic_sep}
+identifier [a-zA-Z][a-zA-Z0-9]*{basic_sep}
 single_line_comment \/\/.*\n
-multi_line_comment \$\{.*\$\}[\t\n\ ]
+multi_line_comment \$\{.*\$\}{basic_sep}
 other .*\n
 
 %%
