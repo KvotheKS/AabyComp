@@ -1,2 +1,0 @@
-rm: cannot remove './lex': No such file or directory
-rm: cannot remove './lex.yy.c': No such file or directory

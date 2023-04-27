@@ -3,10 +3,13 @@
 %}
 
 digit  [0-9]
+lower_case [a-z]
+upper_case [A-Z]
+alphabet ({lower_case}|{upper_case})
 basic_sep [\t\n\ ]
 number {digit}+{basic_sep}
 float  {digit}+\.{digit}*{basic_sep}
-identifier [a-zA-Z][a-zA-Z0-9]*{basic_sep}
+identifier {alphabet}({alphabet}|{digit})*{basic_sep}
 single_line_comment \/\/.*\n
 multi_line_comment \$\{.*\$\}{basic_sep}
 other .*\n
