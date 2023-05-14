@@ -1,5 +1,5 @@
 %{
-    #include <stdio.h>    
+    #include "sintatico.tab.h"
 %}
 
 digit  [0-9]
@@ -7,30 +7,35 @@ lower_case [a-z]
 upper_case [A-Z]
 alphabet ({lower_case}|{upper_case})
 basic_sep [\t\n\ ]
-number {digit}+{basic_sep}
-float  {digit}+\.{digit}*{basic_sep}
-identifier {alphabet}({alphabet}|{digit})*{basic_sep}
+number {digit}+
+identifier {alphabet}({alphabet}|{digit})*
 single_line_comment \/\/.*\n
 multi_line_comment \$\{.*\$\}{basic_sep}
-other .*\n
+other .
 
 %%
--{number} { printf("INTEIRO NEGATIVO IDENTIFICADO\n"); }
-[+]?{number} { printf("INTEIRO POSITIVO IDENTIFICADO\n"); }
--{float} { printf("FLOAT NEGATIVO IDENTIFICADO\n"); }
-[+]?{float} { printf("FLOAT POSITIVO IDENTIFICADO\n"); }
-{identifier} { printf("IDENTIFICADOR IDENTIFICADO\n"); }
-{single_line_comment} { printf("COMENTARIO DE LINHA UNICA\n"); }
-{multi_line_comment}  { printf("COMENTARIO DE LINHA MULTIPLA\n"); }
-{other}  { printf("TOKEN NAO IDENTIFICADO\n"); }
+do              { return (DO);}
+else            { return (ELSE);}
+if              { return (IF);}
+fi              { return (FI);}
+in              { return (IN);}
+integer         { return (INTEGER);}
+read            { return (READ);}
+write           { return (WRITE);}
+let             { return (LET);}
+skip            { return (SKIP);}
+while           { return (WHILE);}
+then            { return (THEN);}
+":="            { return (ASSGNOP);}
+{basic_sep}     /* empty */
+{single_line_comment} { ; }
+{multi_line_comment}  { ; }
+{number}        { return (NUMBER);}
+{identifier}    { return (IDENTIFIER);}
+{other}  { return(yytext[0]); }
 %%
 
 int yywrap();
-
-int main() {
-    printf("Digite um token e aperte enter\n");
-    yylex();
-}
 
 int yywrap()
 {
