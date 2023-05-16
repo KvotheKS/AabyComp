@@ -1,0 +1,5 @@
+// Algumas declarações de variáveis.
+let
+	integer foo, bar, beep, boop.
+in
+end

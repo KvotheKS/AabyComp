@@ -1,0 +1,10 @@
+// Programa errado. Assignment de imediato.
+let
+    integer foo, bar, beep, boop.
+in
+    if (foo = bar) then
+        // abc := 3;
+        37 := abc;
+    else
+    fi;
+end

@@ -1,0 +1,9 @@
+// Testando IF, incluindo aninhamentos. Notar que blocos de IF precisam de ELSE necessariamente, mesmo que vazio.
+let
+    integer foo, bar, beep, boop.
+in
+    if (foo = bar) then
+        abc := 3;
+    else
+    fi;
+end

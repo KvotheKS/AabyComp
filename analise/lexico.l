@@ -10,7 +10,7 @@ basic_sep [\t\n\ ]
 number {digit}+
 identifier {alphabet}({alphabet}|{digit})*
 single_line_comment \/\/.*\n
-multi_line_comment \$\{.*\$\}{basic_sep}
+multi_line_comment \$\{(.|\n)*\$\}\n
 other .
 
 %%
@@ -26,6 +26,7 @@ let             { return (LET);}
 skip            { return (SKIP);}
 while           { return (WHILE);}
 then            { return (THEN);}
+end             { return (END);}
 ":="            { return (ASSGNOP);}
 {basic_sep}     /* empty */
 {single_line_comment} { ; }

@@ -1,0 +1,9 @@
+// Adicionando alguns comandos.
+let
+    integer foo, bar, beep, boop.
+in
+    skip;
+    read foo;
+    bar := foo;
+    write bar;
+end
