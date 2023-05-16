@@ -1,0 +1,10 @@
+// Programa errado. Erro nas declarações de variáveis. É preciso separar com vírgula.
+let
+    integer foo bar.
+in
+    if (foo = bar) then
+        // abc := 3;
+        37 := abc;
+    else
+    fi;
+end

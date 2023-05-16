@@ -1,0 +1,7 @@
+// Programa básico
+let
+    ${ Seção de comentário aqui. 
+        Tudo aqui é ignorado.
+    $}
+in
+end

@@ -1,5 +1,6 @@
 %{
-#include <stdio.h> 
+#include <stdio.h>
+#define YYDEBUG 1
 %}
 %start program
 %token LET
@@ -22,7 +23,9 @@
 %left '*' '/'
 %right '^'
 %%
-program: LET declarations IN command_seq END {;}
+
+
+program: LET declarations IN command_seq END { printf("Programa correto\n"); }
 ;
 
 declarations: /*empty*/
@@ -59,15 +62,24 @@ exp: NUMBER {;}
 ;
 
 %%
-main () 
+main (int argc, char** argv) 
 {
+        yydebug = 0;
+        extern FILE *yyin;
+        /* skip over program name */
+        ++argv;
+        --argc;
+        if ( argc > 0 )
+                yyin = fopen( argv[0], "r" );
+        else
+                yyin = stdin;
+
 	yyparse ();
 }
 yyerror (s) /* Called by yyparse on error */
 	char *s;
 {
 	printf ("Problema com a analise sintatica!\n", s);
-    printf ("%s\n", s);
 }
 
 

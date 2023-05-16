@@ -1,0 +1,13 @@
+// Testando uma seção de while
+let
+    integer foo, bar, beep, boop.
+in
+    skip;
+    read foo;
+    bar := foo;
+    write bar;
+    while (foo = bar) do
+        skip;
+        bar := 37;
+    end;
+end
