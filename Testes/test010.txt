@@ -1,0 +1,10 @@
+// Programa errado. Variável declarada duas vezes.
+let
+    integer foo, bar, boo, foo.
+in
+    if (foo = bar) then
+        // abc := 3;
+        foo := bar * 33 + 22 / 2 - boo;
+    else
+    fi;
+end

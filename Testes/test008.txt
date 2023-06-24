@@ -1,0 +1,10 @@
+// Programa errado. Variável não declarada.
+let
+    integer foo, bar.
+in
+    if (foo = bar) then
+        // abc := 3;
+        nar := boo;
+    else
+    fi;
+end
