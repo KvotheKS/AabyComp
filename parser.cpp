@@ -1,5 +1,4 @@
 #include <iostream>
-#include "FlexLexer.h"
 #include "sintatico.hh"
 
 extern void scan_begin(int argc, char** argv);
