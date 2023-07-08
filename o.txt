@@ -1,0 +1,88 @@
+.globl main
+.data
+vars:
+.space 16
+.text
+main:
+	la s11, vars
+	addi t0, zero, 20
+	addi sp, sp, -4
+	sw t0, 0(sp)
+	sw t0, 0(sp)
+	lw t0, 0(sp)
+	sw t0, -4(s11)
+	addi sp, sp,4
+whilecheck0:
+	lw t0, -4(s11)
+	addi sp, sp, -4
+	sw t0, 0(sp)
+	addi t0, zero, 25
+	addi sp, sp, -4
+	sw t0, 0(sp)
+	lw t0, 4(sp)
+	lw t1, 0(sp)
+	addi sp, sp,4
+	slt t0, t0, t1
+	sw t0, 0(sp)
+	addi sp, sp,4
+	beq t0, zero, whileout0
+	lw t0, -4(s11)
+	addi sp, sp, -4
+	sw t0, 0(sp)
+	addi t0, zero, 1
+	addi sp, sp, -4
+	sw t0, 0(sp)
+	lw t0, 4(sp)
+	lw t1, 0(sp)
+	addi sp, sp,4
+	add t0, t0, t1
+	sw t0, 0(sp)
+	lw t0, 0(sp)
+	sw t0, -4(s11)
+	addi sp, sp,4
+	lw t0, -4(s11)
+	sw t0, 0(sp)
+	lw t0, 0(sp)
+	addi sp, sp,4
+	add a0, t0, zero
+	addi a7, zero, 1
+	ecall
+	addi a0, zero, 10
+	addi a7, zero, 11
+	ecall
+	jal zero, whilecheck0
+whileout0:
+	lw t0, -4(s11)
+	sw t0, 0(sp)
+	addi sp, sp,4
+	beq t0, zero, elsein1
+	addi t0, zero, 100
+	addi sp, sp, -4
+	sw t0, 0(sp)
+	sw t0, 0(sp)
+	lw t0, 0(sp)
+	addi sp, sp,4
+	add a0, t0, zero
+	addi a7, zero, 1
+	ecall
+	addi a0, zero, 10
+	addi a7, zero, 11
+	ecall
+	jal zero, ifout1
+elsein1:
+	addi t0, zero, 200
+	addi sp, sp, -4
+	sw t0, 0(sp)
+	sw t0, 0(sp)
+	lw t0, 0(sp)
+	addi sp, sp,4
+	add a0, t0, zero
+	addi a7, zero, 1
+	ecall
+	addi a0, zero, 10
+	addi a7, zero, 11
+	ecall
+ifout1:
+	addi a0, zero,0
+	addi a7,zero, 93
+	ecall

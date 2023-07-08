@@ -23,10 +23,10 @@ all: $(MAIN)
 %.cc: $(SRC_PATH)/%.ll
 	$(FLEX) $(FLEXFLAGS) -o $@ $<
 
-%.o: %.cc
+%.o: %.cc pcodegen.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-$(MAIN): $(MAIN).o sintatico.o lexico.o
+$(MAIN): $(MAIN).o sintatico.o lexico.o pcodegen.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 $(MAIN).o: sintatico.hh

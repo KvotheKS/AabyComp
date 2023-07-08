@@ -8,17 +8,26 @@
 
 %code requires {
         #include <iostream>
+        #include <memory>
         #include <unordered_map>
+        #include <fstream>
         #include "sintatico.hh"
+        #include "pcodegen.h"
 }
 
 
 %code {
         # define YY_DECL \
         yy::parser::symbol_type yylex ()
+        
         YY_DECL;
         std::unordered_map<std::string,int> symTable;
         int semanticErrors = 0;
+        int syntaticError = 0;
+        int branchcount = 0;
+        //std::ofstream _file("o.txt");
+        std::string _f_out;
+        extern std::string __immediate;
 }
 
 /* %define parse.trace */
@@ -50,10 +59,14 @@
 %left '*' '/'
 %right '^'
 
+%type<std::string> exp fst_exp sec_exp thr_exp command command_seq
+
 %%
 
 
-program: LET declarations IN command_seq END { std::cout << "Programa sintaticamente correto\n"; }
+program: LET declarations IN command_seq END { 
+        _f_out = programheader() + $4 + exitprogram(symTable); 
+}
 ;
 
 declarations: /*empty*/
@@ -66,7 +79,7 @@ declarations: /*empty*/
                         semanticErrors++;
                 } else {
                         std::cout << "New variable: " << name << "\n";
-                        symTable.emplace(name,0);
+                        symTable.emplace(name,symTable.size());
                 }
         }
 ;
@@ -81,16 +94,16 @@ id_seq: /* empty */
                                 semanticErrors++;
                         } else {
                                 std::cout << "New variable: " << name << "\n";
-                                symTable.emplace(name,0);
+                                symTable.emplace(name,symTable.size());
                         }
                 }
 ;
 
-command_seq: /* empty */
-        | command_seq command ';' {;}
+command_seq: {$$ = "";}
+        | command_seq command ';' {$$ = $1 + $2;}
 ;
 
-command: SKIP
+command: SKIP {$$ = "";}
         | READ IDENTIFIER   {
                 std::string name = $2;
                 std::unordered_map<std::string,int>::iterator tracer = symTable.find(name);
@@ -99,8 +112,14 @@ command: SKIP
                         std::cout << "Variable not declared: " << name << "\n";
                         semanticErrors++;
                 }
+                if(!semanticErrors)
+                        $$ = readcall(symTable, $2) + pushstack();
         }
-        | WRITE exp {;}
+        | WRITE exp {
+                if(!semanticErrors)
+                        $$ = TraverseExp(symTable, $2)  + writecall();
+                
+        }
         | IDENTIFIER ASSGNOP exp    {
                 std::string name = $1;
                 std::unordered_map<std::string,int>::iterator tracer = symTable.find(name);
@@ -109,13 +128,58 @@ command: SKIP
                         std::cout << "Variable not declared: " << name << "\n";
                         semanticErrors++;
                 }
+                if(!semanticErrors)
+                {
+                        $$ = TraverseExp(symTable, $3); 
+                        $$ += assignvar(symTable, $1) + pop(1);
+                }
         }
-        | IF exp THEN command_seq ELSE command_seq FI   {;}
-        | WHILE exp DO command_seq END {;}
+        | IF exp THEN command_seq ELSE command_seq FI   {
+                std::string if_cmd;
+                if(!semanticErrors)
+                {
+                        std::string branchnum = std::to_string(branchcount++);
+                        
+                        if_cmd = TraverseExp(symTable, $2) + pop(1) +
+                        "\tbeq t0, zero, elsein" + branchnum + '\n';
+                        
+                        if_cmd += $4 + "\tjal zero, ifout" + branchnum + "\nelsein" + 
+                                  branchnum + ":\n" + $6 + "ifout" + branchnum + ":\n";
+                }
+                $$ = if_cmd;
+        }
+        | WHILE exp DO command_seq END {
+                std::string while_cmd;
+                if(!semanticErrors)
+                {
+                        std::string branchnum = std::to_string(branchcount++);
+                        while_cmd = "whilecheck" + branchnum + ":\n";
+                        while_cmd += TraverseExp(symTable, $2) + pop(1) + 
+                        "\tbeq t0, zero, whileout" + branchnum + "\n" + $4 +
+                        "\tjal zero, whilecheck" + branchnum + "\nwhileout" + branchnum + ":\n";
+                }
+
+                $$ = while_cmd;
+        }
 ;
 
-exp: NUMBER {;}
-        | IDENTIFIER    {
+exp:    fst_exp '<' fst_exp   {$$ = "< " + $1 + " " + $3 + " "; }
+        | fst_exp '=' fst_exp   {$$ = "= " + $1 + " " + $3 + " "; }
+        | fst_exp '>' fst_exp   {$$ = "> " + $1 + " " + $3 + " ";}
+        | fst_exp {$$ = $1;}
+;
+
+fst_exp: sec_exp '+' fst_exp {$$ = "+ " + $1 + " " + $3 + " ";}
+        | sec_exp '-' fst_exp {$$ = "- " + $1 + " " + $3 + " ";}
+        | sec_exp {$$ = $1;}
+;
+
+sec_exp: thr_exp '*' sec_exp   {$$ = "* " + $1 + " " + $3 + " ";}
+        | thr_exp '/' sec_exp   {$$ = "/ " + $1 + " " + $3 + " ";}
+        | thr_exp {$$ = $1;}
+;
+
+thr_exp: IDENTIFIER    {
                 std::string name = $1;
                 std::unordered_map<std::string,int>::iterator tracer = symTable.find(name);
                 if (tracer == symTable.end()) {
@@ -123,23 +187,18 @@ exp: NUMBER {;}
                         std::cout << "Variable not declared: " << name << "\n";
                         semanticErrors++;
                 }
+                $$ = $1;
         }
-        | exp '<' exp   {;}
-        | exp '=' exp   {;}
-        | exp '>' exp   {;}
-        | exp '+' exp   {;}
-        | exp '-' exp   {;}
-        | exp '*' exp   {;}
-        | exp '/' exp   {;}
-        | exp '^' exp   {;}
-        | '(' exp ')'   {;}
+        | NUMBER { $$ = __immediate; } 
+        | '(' exp ')' {$$ = $2;}
 ;
 
 %%
 
+
+
 void yy::parser::error (const std::string& m) /* Called by yyparse on error */
 {
+        syntaticError++;
 	std::cerr << m << '\n';
 }
-
-

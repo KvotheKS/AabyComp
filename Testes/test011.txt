@@ -1,0 +1,6 @@
+let
+	integer foo.
+in
+    read foo;
+    write foo;
+end

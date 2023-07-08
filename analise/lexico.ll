@@ -4,6 +4,7 @@
 # define YY_DECL \
   yy::parser::symbol_type yylex ()
 YY_DECL;
+    std::string __immediate;
 %}
 
 /* %option debug */
@@ -38,7 +39,7 @@ end               return yy::parser::token::TOK_END;
 {single_line_comment} { ; }
 {multi_line_comment}  { ; }
 {basic_sep}       { ; }
-{number}          return yy::parser::token::TOK_NUMBER;
+{number}          { __immediate = yytext; return yy::parser::token::TOK_NUMBER; }
 {identifier}      {return yy::parser::make_IDENTIFIER (yytext);}
 {other}           return yytext[0];
 <<EOF>>           return yy::parser::token::TOK_YYEOF;
