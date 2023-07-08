@@ -1,0 +1,13 @@
+let
+    integer a.
+in
+    read a;
+    write a = 5;
+    if a = 5 then
+        write a;
+    elif a > 5 then
+        write 70;
+    elif a < 6 then
+        write -1;
+    fi;
+end

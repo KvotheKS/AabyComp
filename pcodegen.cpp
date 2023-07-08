@@ -57,6 +57,7 @@ std::string getimm(std::string& num)
 
 std::string pushimm(std::string& num)
 {
+    std::cout << "IMM: " << num << std::endl;
     return getimm(num) + pushstack();
 }
 
@@ -130,7 +131,8 @@ void _traverse(
 )
 {
     char op = (*it)[0];
-    if(operation_table.find(op) != operation_table.end())
+    
+    if(it->size() == 1 && operation_table.find(op) != operation_table.end())
     {    
         _shldtraverse(f_out, symTable, it);
         _shldtraverse(f_out, symTable, it);
@@ -141,7 +143,8 @@ void _traverse(
         if(op == '>')
             f_out += "\tsub t0, t0, t1\n\tslt t0, zero, t0\n";
         else if(op == '=')
-            f_out += "\tsub t0, t0, t1\n\txori t0, t0, 1\n";
+            f_out += std::string("\tsub t0, t0, t1\n\tadd t1, zero, t0\n\t") + 
+            "slt t0, t1, zero\n\tslt t1, zero, t1\n\tadd t0, t0, t1\n\txori t0, t0, 1\n";
         else
             f_out += "\t" + operation_table[op] + " t0, t0, t1\n"; 
     }

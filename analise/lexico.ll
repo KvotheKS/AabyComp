@@ -14,7 +14,7 @@ lower_case [a-z]
 upper_case [A-Z]
 alphabet ({lower_case}|{upper_case})
 basic_sep [\t\n ]
-number {digit}+
+number [-]?{digit}+
 identifier {alphabet}({alphabet}|{digit})*
 single_line_comment \/\/.*\n
 multi_line_comment \$\{(.|\n)*\$\}\n
@@ -25,6 +25,7 @@ other .
 do                return yy::parser::token::TOK_DO;
 else              return yy::parser::token::TOK_ELSE;
 if                return yy::parser::token::TOK_IF;
+elif              return yy::parser::token::TOK_ELIF;
 fi                return yy::parser::token::TOK_FI;
 in                return yy::parser::token::TOK_IN;
 integer           return yy::parser::token::TOK_INTEGER;

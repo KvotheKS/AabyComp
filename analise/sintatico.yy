@@ -25,6 +25,7 @@
         int semanticErrors = 0;
         int syntaticError = 0;
         int branchcount = 0;
+        std::string currentChain = "0";
         //std::ofstream _file("o.txt");
         std::string _f_out;
         extern std::string __immediate;
@@ -42,6 +43,7 @@
 %token INTEGER
 %token SKIP
 %token IF
+%token ELIF
 %token FI
 %token THEN
 %token ELSE
@@ -59,7 +61,7 @@
 %left '*' '/'
 %right '^'
 
-%type<std::string> exp fst_exp sec_exp thr_exp command command_seq
+%type<std::string> exp fst_exp sec_exp thr_exp command command_seq if_loop
 
 %%
 
@@ -117,8 +119,9 @@ command: SKIP {$$ = "";}
         }
         | WRITE exp {
                 if(!semanticErrors)
+                {
                         $$ = TraverseExp(symTable, $2)  + writecall();
-                
+                }
         }
         | IDENTIFIER ASSGNOP exp    {
                 std::string name = $1;
@@ -134,20 +137,21 @@ command: SKIP {$$ = "";}
                         $$ += assignvar(symTable, $1) + pop(1);
                 }
         }
-        | IF exp THEN command_seq ELSE command_seq FI   {
+        | IF exp THEN command_seq if_loop FI   {
                 std::string if_cmd;
                 if(!semanticErrors)
                 {
                         std::string branchnum = std::to_string(branchcount++);
-                        
                         if_cmd = TraverseExp(symTable, $2) + pop(1) +
-                        "\tbeq t0, zero, elsein" + branchnum + '\n';
+                        "\tbeq t0, zero, ifout" + branchnum + '\n';
                         
-                        if_cmd += $4 + "\tjal zero, ifout" + branchnum + "\nelsein" + 
-                                  branchnum + ":\n" + $6 + "ifout" + branchnum + ":\n";
+                        if_cmd += $4 + "\tjal zero, ifchainout" + currentChain + "\nifout" + 
+                                  branchnum + ":\n" + $5 + "ifchainout" + currentChain + ":\n";
                 }
+                currentChain = std::to_string(branchcount);
                 $$ = if_cmd;
         }
+
         | WHILE exp DO command_seq END {
                 std::string while_cmd;
                 if(!semanticErrors)
@@ -161,6 +165,20 @@ command: SKIP {$$ = "";}
 
                 $$ = while_cmd;
         }
+;
+
+if_loop: {$$ = "";}
+        | ELIF exp THEN command_seq if_loop {
+                std::string if_cmd;
+                std::string branchnum = std::to_string(branchcount++);
+                        
+                if_cmd = TraverseExp(symTable, $2) + pop(1) +
+                "\tbeq t0, zero, ifout" + branchnum + '\n';
+                if_cmd += $4 + "\tjal zero, ifchainout" + currentChain + "\nifout" + 
+                                branchnum + ":\n" + $5;
+                $$ = if_cmd;
+        }
+        | ELSE command_seq { $$ = $2; }
 ;
 
 exp:    fst_exp '<' fst_exp   {$$ = "< " + $1 + " " + $3 + " "; }
