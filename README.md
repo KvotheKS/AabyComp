@@ -5,6 +5,7 @@
 -   Bruno Abreu Kamienski 
 -   Karen Lima Macêdo
 -   Marco Antonio Souza de Athayde
+-   Gabriel Cesario Silva Martins
 
 ## Fase final - Gerador de Código
     Para rodar o nosso programa, sugerimos que seja utilizado o WinFlex no windows, que contém tanto a versão mais recente do bison quanto a do flex. Além disso, sugerimos também que o compilador utilizado seja o tdm-gcc64, dado que ele vem com uma versão relativamente recente do mingw, aliado também ao mingw32-make, que é necessário para compilar o programa.
