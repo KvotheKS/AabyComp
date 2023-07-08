@@ -1,0 +1,14 @@
+let
+    integer a, b.
+in
+    read a;
+    read b;
+    if a < b then
+        while a < b do
+            a := a * 2;
+        end;
+    else
+    fi;
+    write a;
+    write b;
+end

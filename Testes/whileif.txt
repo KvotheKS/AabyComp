@@ -1,0 +1,14 @@
+let
+    integer a, b.
+in
+    a := 0;
+    b := 0;
+    while a < 5 do
+        if a = 4 then
+            b := 50;
+        else
+        fi;
+        a := a + 1;
+    end;
+    write b;
+end

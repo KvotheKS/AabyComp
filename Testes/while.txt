@@ -1,0 +1,9 @@
+let
+    integer a, b, c.
+in
+    a := 1;
+    while a < 1000 do
+        a := a * 5;
+        write a;
+    end;
+end
