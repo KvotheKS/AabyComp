@@ -76,7 +76,11 @@ ifout2:
 	lw t1, 0(sp)
 	addi sp, sp,4
 	sub t0, t0, t1
-	slt t0, zero, t0
+	add t1, zero, t0
+	slt t0, t1, zero
+	slt t1, zero, t1
+	add t0, t0, t1
+	xori t0, t0, 1
 	sw t0, 0(sp)
 	addi sp, sp,4
 	beq t0, zero, ifout1
@@ -121,6 +125,18 @@ ifout1:
 	ecall
 	jal zero, ifchainout0
 ifout0:
+	addi t0, zero, 30
+	addi sp, sp, -4
+	sw t0, 0(sp)
+	sw t0, 0(sp)
+	lw t0, 0(sp)
+	addi sp, sp,4
+	add a0, t0, zero
+	addi a7, zero, 1
+	ecall
+	addi a0, zero, 10
+	addi a7, zero, 11
+	ecall
 ifchainout0:
 	addi a0, zero,0
 	addi a7,zero, 10

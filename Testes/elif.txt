@@ -5,9 +5,11 @@ in
     write a = 5;
     if a = 5 then
         write a;
-    elif a > 5 then
+    elif a = 5 then
         write 70;
     elif a < 6 then
         write +1;
+    else
+        write 30;
     fi;
 end
