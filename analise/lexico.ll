@@ -14,7 +14,7 @@ lower_case [a-z]
 upper_case [A-Z]
 alphabet ({lower_case}|{upper_case})
 basic_sep [\t\n ]
-number [-]?{digit}+
+number [-+]?(\ )*{digit}+
 identifier {alphabet}({alphabet}|{digit})*
 single_line_comment \/\/.*\n
 multi_line_comment \$\{(.|\n)*\$\}\n

@@ -57,7 +57,7 @@ std::string getimm(std::string& num)
 
 std::string pushimm(std::string& num)
 {
-    std::cout << "IMM: " << num << std::endl;
+    // std::cout << "IMM: " << num << std::endl;
     return getimm(num) + pushstack();
 }
 
@@ -150,6 +150,7 @@ void _traverse(
     }
     else if(symTable.find(*it) == symTable.end())
         f_out += pushimm(*it);
+    
     else
         f_out += pushvar(symTable, *it);
     

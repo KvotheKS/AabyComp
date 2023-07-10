@@ -107,7 +107,7 @@ ifout1:
 	sw t0, 0(sp)
 	addi sp, sp,4
 	beq t0, zero, ifout0
-	addi t0, zero, -1
+	addi t0, zero, +1
 	addi sp, sp, -4
 	sw t0, 0(sp)
 	sw t0, 0(sp)

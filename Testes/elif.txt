@@ -8,6 +8,6 @@ in
     elif a > 5 then
         write 70;
     elif a < 6 then
-        write -1;
+        write +1;
     fi;
 end
