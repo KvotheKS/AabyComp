@@ -21,21 +21,28 @@
         yy::parser::symbol_type yylex ()
         
         YY_DECL;
-        std::unordered_map<std::string,int> symTable;
+        std::unordered_map<std::string, Symbol> symTable;
         int semanticErrors = 0;
         int syntaticError = 0;
+        int variableCount = 0;
         int branchcount = 0;
         std::string currentChain = "0";
         //std::ofstream _file("o.txt");
         std::string _f_out;
         extern std::string __immediate;
+        RegisterTracker registerTracker;
 }
 
-/* %define parse.trace */
-/* %define parse.error detailed */
-/* %define parse.lac full */
+%define parse.trace
+%define parse.error detailed
+%define parse.lac full
 
 %start program
+
+/* %union {
+        Expression Expression;
+        std::string string;
+} */
 
 %define api.token.prefix {TOK_}
 %token LET
@@ -59,9 +66,11 @@
 %left '<' '>' '='
 %left '-' '+'
 %left '*' '/'
-%right '^'
+/* %right '^' */
 
-%type<std::string> exp fst_exp sec_exp thr_exp command command_seq if_loop
+/* %type<std::string> exp fst_exp sec_exp thr_exp command command_seq if_loop */
+%type <std::string> command command_seq if_loop
+%type <Expression> exp
 
 %%
 
@@ -74,14 +83,19 @@ program: LET declarations IN command_seq END {
 declarations: /*empty*/
         | INTEGER id_seq IDENTIFIER '.' {
                 std::string name = $3;
-                std::unordered_map<std::string,int>::iterator tracer = symTable.find(name);
+                std::unordered_map<std::string, Symbol>::iterator tracer = symTable.find(name);
                 if (tracer != symTable.end()) {
                         // Variável já declarada, erro.
                         std::cout << "Variable with same name already declared: " << name << "\n";
                         semanticErrors++;
                 } else {
                         std::cout << "New variable: " << name << "\n";
-                        symTable.emplace(name,symTable.size());
+                        Symbol newVar;
+                        newVar.name = name;
+                        newVar.value = 0;
+                        newVar.assemblyLabel = "VAR" + std::to_string(variableCount);
+                        symTable.emplace(name, newVar);
+                        variableCount++;
                 }
         }
 ;
@@ -89,14 +103,19 @@ declarations: /*empty*/
 id_seq: /* empty */
         | id_seq IDENTIFIER ',' {
                         std::string name = $2;
-                        std::unordered_map<std::string,int>::iterator tracer = symTable.find(name);
+                        std::unordered_map<std::string,Symbol>::iterator tracer = symTable.find(name);
                         if (tracer != symTable.end()) {
                                 // Variável já declarada, erro.
                                 std::cout << "Variable with same name already declared: " << name << "\n";
                                 semanticErrors++;
                         } else {
                                 std::cout << "New variable: " << name << "\n";
-                                symTable.emplace(name,symTable.size());
+                                Symbol newVar;
+                                newVar.name = name;
+                                newVar.value = 0;
+                                newVar.assemblyLabel = "VAR" + std::to_string(variableCount);
+                                symTable.emplace(name, newVar);
+                                variableCount++;
                         }
                 }
 ;
@@ -108,24 +127,47 @@ command_seq: {$$ = "";}
 command: SKIP {$$ = "";}
         | READ IDENTIFIER   {
                 std::string name = $2;
-                std::unordered_map<std::string,int>::iterator tracer = symTable.find(name);
+                std::unordered_map<std::string,Symbol>::iterator tracer = symTable.find(name);
                 if (tracer == symTable.end()) {
                         // Variável não declarada, erro.
                         std::cout << "Variable not declared: " << name << "\n";
                         semanticErrors++;
                 }
-                if(!semanticErrors)
-                        $$ = readcall(symTable, $2) + pushstack();
+                if(!semanticErrors) {
+                        // $$ = readcall(symTable, $2) + pushstack(); // Por que pushstack() aqui?
+                        $$ = readcall(symTable, $2);
+                }
         }
         | WRITE exp {
                 if(!semanticErrors)
                 {
-                        $$ = TraverseExp(symTable, $2)  + writecall();
+                        std::string code = $2.code; // Código gerado no cálculo da expressão.
+                        if ($2.knownInCompileTime) {
+                                // Coloca imediato em t0.
+                                code += "\tli t0, " + std::to_string($2.value) + "\n";
+                        } else {
+                                switch ($2.locationType) {
+                                        case MEMORY:
+                                                code += "\tla t0, " + $2.location + "\n";
+                                                code += "\tlw t0, 0(t0)\n";
+                                                break;
+                                        case REGISTER:
+                                                code += "\tadd t0, zero, " + $2.location + "\n";
+                                                break;
+                                        case STACK:
+                                                code += "\tlw t0, 0(sp)\n";
+                                                code += "\taddi sp, sp, 4\n"; // Não esquecendo de liberar a pilha.
+                                                break;
+                                }
+                        }
+                        code += writecall();
+                        $$ = code;
+                        registerTracker.freeAllRegisters();
                 }
         }
         | IDENTIFIER ASSGNOP exp    {
                 std::string name = $1;
-                std::unordered_map<std::string,int>::iterator tracer = symTable.find(name);
+                std::unordered_map<std::string,Symbol>::iterator tracer = symTable.find(name);
                 if (tracer == symTable.end()) {
                         // Variável não declarada, erro.
                         std::cout << "Variable not declared: " << name << "\n";
@@ -133,55 +175,167 @@ command: SKIP {$$ = "";}
                 }
                 if(!semanticErrors)
                 {
-                        $$ = TraverseExp(symTable, $3); 
-                        $$ += assignvar(symTable, $1) + pop(1);
+                        std::string code = $3.code;
+                        if ($3.knownInCompileTime) {
+                                code += "\tli t0, " + std::to_string($3.value) + "\n";
+                        } else {
+                                switch ($3.locationType) {
+                                        case MEMORY:
+                                                code += "\tla t0, " + $3.location + "\n";
+                                                code += "\tlw t0, 0(t0)\n";
+                                                break;
+                                        case REGISTER:
+                                                code += "\tadd t0, zero, " + $3.location + "\n";
+                                                break;
+                                        case STACK:
+                                                code += "\tlw t0, 0(sp)\n";
+                                                code += "\taddi sp, sp, 4\n"; // Não esquecendo de liberar a pilha.
+                                                break;
+                                }
+                        }
+                        code += assignvar(symTable, $1); // Armazena valor de t0 na variável.
+                        $$ = code;
                 }
+                registerTracker.freeAllRegisters();
         }
         | IF exp THEN command_seq if_loop FI   {
-                std::string if_cmd;
+                std::string if_cmd = "";
                 if(!semanticErrors)
                 {
                         std::string branchnum = std::to_string(branchcount++);
-                        if_cmd = TraverseExp(symTable, $2) + pop(1) +
-                        "\tbeq t0, zero, ifout" + branchnum + '\n';
+                        // Armazena s0 anterior em s1 por enquanto.
+                        if_cmd += "\tadd s1, zero, s0\n";
+                        std::string conditionCode = "";
+                        if ($2.knownInCompileTime) {
+                                conditionCode += "\tli s0, " + std::to_string($2.value) + "\n";
+                        } else {
+                                switch ($2.locationType) {
+                                        case MEMORY:
+                                                conditionCode += "\tla t0, " + $2.location + "\n";
+                                                conditionCode += "\tlw s0, 0(t0)\n";
+                                                break;
+                                        case REGISTER:
+                                                conditionCode += "\tadd s0, zero, " + $2.location + "\n";
+                                                break;
+                                        case STACK:
+                                                conditionCode += "\tlw s0, 0(sp)\n";
+                                                conditionCode += "\taddi sp, sp, 4\n"; // Não esquecendo de liberar a pilha.
+                                                break;
+                                }
+                        }
+
+                        // Teste de condição.
+                        if_cmd += $2.code;
+                        if_cmd += conditionCode;
+                        // Armazena s0 anterior (que está em s1) na pilha.
+                        if_cmd += "\taddi sp, sp, -4\n\tsw s1, 0(sp)\n";
+
+                        if_cmd += "\tbeq s0, zero, ifout" + branchnum + '\n';
                         
                         if_cmd += $4 + "\tjal zero, ifchainout" + currentChain + "\nifout" + 
-                                  branchnum + ":\n" + $5 + "ifchainout" + currentChain + ":\n";
+                                branchnum + ":\n" + $5 + "ifchainout" + currentChain + ":\n";
+                        
+                        // Retira s0 anterior da pilha.
+                        if_cmd += "\tlw s0, 0(sp)\n\taddi sp, sp, 4\n";
                 }
                 currentChain = std::to_string(branchcount);
                 $$ = if_cmd;
+                registerTracker.freeAllRegisters();
         }
 
         | WHILE exp DO command_seq END {
-                std::string while_cmd;
+                std::string while_cmd = "";
                 if(!semanticErrors)
                 {
                         std::string branchnum = std::to_string(branchcount++);
-                        while_cmd = "whilecheck" + branchnum + ":\n";
-                        while_cmd += TraverseExp(symTable, $2) + pop(1) + 
-                        "\tbeq t0, zero, whileout" + branchnum + "\n" + $4 +
-                        "\tjal zero, whilecheck" + branchnum + "\nwhileout" + branchnum + ":\n";
-                }
+                        // Armazena s0 anterior em s1 por enquanto.
+                        while_cmd += "\tadd s1, zero, s0\n";
+                        std::string conditionCode = "";
+                        if ($2.knownInCompileTime) {
+                                conditionCode += "\tli s0, " + std::to_string($2.value) + "\n";
+                        } else {
+                                switch ($2.locationType) {
+                                        case MEMORY:
+                                                conditionCode += "\tla t0, " + $2.location + "\n";
+                                                conditionCode += "\tlw s0, 0(t0)\n";
+                                                break;
+                                        case REGISTER:
+                                                conditionCode += "\tadd s0, zero, " + $2.location + "\n";
+                                                break;
+                                        case STACK:
+                                                // s0 já foi colocado na pilha, então teremos que fazer um ajuste.
+                                                conditionCode += "\tlw s0, 4(sp)\n";
+                                                conditionCode += "\tsw s1, 4(sp)\n";
+                                                conditionCode += "\taddi sp, sp, 4\n"; // Não esquecendo de liberar a pilha.
+                                                break;
+                                }
+                        }
 
+                        // Armazena s0 anterior (que está em s1) na pilha.
+                        while_cmd += "\taddi sp, sp, -4\n\tsw s1, 0(sp)\n";
+
+                        while_cmd += "whilecheck" + branchnum + ":\n";
+
+                        // Colocamos o código gerado acima para mudar o valor de s0.
+                        while_cmd += $2.code;
+                        while_cmd += conditionCode;
+
+                        while_cmd += "\tbeq s0, zero, whileout" + branchnum + "\n" + $4 +
+                        "\tjal zero, whilecheck" + branchnum + "\nwhileout" + branchnum + ":\n";
+
+                        // Retira s0 anterior da pilha.
+                        while_cmd += "\tlw s0, 0(sp)\n\taddi sp, sp, 4\n";
+                }
                 $$ = while_cmd;
+                registerTracker.freeAllRegisters();
         }
 ;
 
-if_loop: {$$ = "";}
+if_loop: /* empty */ {$$ = "";}
         | ELIF exp THEN command_seq if_loop {
-                std::string if_cmd;
+                std::string if_cmd = "";
                 std::string branchnum = std::to_string(branchcount++);
+                // Armazena s0 anterior em s1 por enquanto.
+                if_cmd += "\tadd s1, zero, s0\n";
+                std::string conditionCode = "";
+                if ($2.knownInCompileTime) {
+                        conditionCode += "\tli s0, " + std::to_string($2.value) + "\n";
+                } else {
+                        switch ($2.locationType) {
+                                case MEMORY:
+                                        conditionCode += "\tla t0, " + $2.location + "\n";
+                                        conditionCode += "\tlw s0, 0(t0)\n";
+                                        break;
+                                case REGISTER:
+                                        conditionCode += "\tadd s0, zero, " + $2.location + "\n";
+                                        break;
+                                case STACK:
+                                        conditionCode += "\tlw s0, 0(sp)\n";
+                                        conditionCode += "\taddi sp, sp, 4\n"; // Não esquecendo de liberar a pilha.
+                                        break;
+                        }
+                }
+
+                // Teste de condição.
+                if_cmd += $2.code;
+                if_cmd += conditionCode;
+                // Armazena s0 anterior (que está em s1) na pilha.
+                if_cmd += "\taddi sp, sp, -4\n\tsw s1, 0(sp)\n";
                         
-                if_cmd = TraverseExp(symTable, $2) + pop(1) +
-                "\tbeq t0, zero, ifout" + branchnum + '\n';
+                if_cmd += "\tbeq s0, zero, ifout" + branchnum + '\n';
                 if_cmd += $4 + "\tjal zero, ifchainout" + currentChain + "\nifout" + 
                                 branchnum + ":\n" + $5;
+
+                // Retira s0 anterior da pilha.
+                if_cmd += "\tlw s0, 0(sp)\n\taddi sp, sp, 4\n";
+                
                 $$ = if_cmd;
+                registerTracker.freeAllRegisters();
         }
         | ELSE command_seq { $$ = $2; }
 ;
 
-exp:    fst_exp '<' fst_exp   {$$ = "< " + $1 + " " + $3 + " "; }
+/* exp:    fst_exp '<' fst_exp   {$$ = "< " + $1 + " " + $3 + " "; }
         | fst_exp '=' fst_exp   {$$ = "= " + $1 + " " + $3 + " "; }
         | fst_exp '>' fst_exp   {$$ = "> " + $1 + " " + $3 + " ";}
         | fst_exp {$$ = $1;}
@@ -199,7 +353,7 @@ sec_exp: thr_exp '*' sec_exp   {$$ = "* " + $1 + " " + $3 + " ";}
 
 thr_exp: IDENTIFIER    {
                 std::string name = $1;
-                std::unordered_map<std::string,int>::iterator tracer = symTable.find(name);
+                std::unordered_map<std::string,Symbol>::iterator tracer = symTable.find(name);
                 if (tracer == symTable.end()) {
                         // Variável não declarada, erro.
                         std::cout << "Variable not declared: " << name << "\n";
@@ -209,11 +363,40 @@ thr_exp: IDENTIFIER    {
         }
         | NUMBER { $$ = __immediate; } 
         | '(' exp ')' {$$ = $2;}
+; */
+
+exp:    NUMBER {
+                Expression imm;
+                imm.value = std::stoi(__immediate);
+                imm.knownInCompileTime = true;
+                $$ = imm;
+        }
+        | IDENTIFIER {
+                std::string name = $1;
+                std::unordered_map<std::string,Symbol>::iterator tracer = symTable.find(name);
+                if (tracer == symTable.end()) {
+                        // Variável não declarada, erro.
+                        std::cout << "Variable not declared: " << name << "\n";
+                        semanticErrors++;
+                } else {
+                        $$.knownInCompileTime = false;
+                        $$.location = tracer->second.assemblyLabel;
+                        $$.locationType = MEMORY;
+                }
+        }
+        // Se ambos os termos forem imediatos, podemos calcular o valor das expressões agora.
+        | exp '<' exp   {$$ = processExpressions($1, $3, '<', registerTracker);}
+        | exp '=' exp   {$$ = processExpressions($1, $3, '=', registerTracker);}
+        | exp '>' exp   {$$ = processExpressions($1, $3, '>', registerTracker);}
+        | exp '+' exp   {$$ = processExpressions($1, $3, '+', registerTracker);}
+        | exp '-' exp   {$$ = processExpressions($1, $3, '-', registerTracker);}
+        | exp '*' exp   {$$ = processExpressions($1, $3, '*', registerTracker);}
+        | exp '/' exp   {$$ = processExpressions($1, $3, '/', registerTracker);}
+        /* | exp '^' exp   {$$ = processExpressions($1, $3, $2, registerTracker);} */
+        | '(' exp ')'   {$$ = $2;}
 ;
 
 %%
-
-
 
 void yy::parser::error (const std::string& m) /* Called by yyparse on error */
 {

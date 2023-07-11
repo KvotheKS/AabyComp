@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include "sintatico.hh"
 
 extern void scan_begin(int argc, char** argv);
