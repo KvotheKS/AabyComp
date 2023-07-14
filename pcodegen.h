@@ -49,6 +49,14 @@ class Expression {
     LocationType locationType {MEMORY};
 };
 
+class CompileError {
+ public:
+    int lineNum {0};
+    std::string msg {""};
+    std::string line {""};
+    CompileError();
+    CompileError (int l, std::string m) : lineNum(l), msg(m) {};
+};
 
 // void tokenize(std::vector<std::string>&, std::string&);
 // std::string TraverseExp(std::unordered_map<std::string, Symbol>&, std::string&);

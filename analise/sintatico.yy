@@ -4,7 +4,7 @@
 
 %define api.token.constructor
 %define api.value.type variant
-%define parse.assert
+/* %define parse.assert */
 
 %code requires {
         #include <iostream>
@@ -22,20 +22,22 @@
         
         YY_DECL;
         std::unordered_map<std::string, Symbol> symTable;
-        int semanticErrors = 0;
-        int syntaticError = 0;
+        int errors = 0;
         int variableCount = 0;
         int branchcount = 0;
         std::string currentChain = "0";
         //std::ofstream _file("o.txt");
         std::string _f_out;
         extern std::string __immediate;
+        extern std::string __badToken;
+        extern int yylineno;
         RegisterTracker registerTracker;
+        std::vector<CompileError> compileErrors;
 }
 
-%define parse.trace
+/* %define parse.trace
 %define parse.error detailed
-%define parse.lac full
+%define parse.lac full */
 
 %start program
 
@@ -66,6 +68,7 @@
 %left '<' '>' '='
 %left '-' '+'
 %left '*' '/'
+%left error
 /* %right '^' */
 
 /* %type<std::string> exp fst_exp sec_exp thr_exp command command_seq if_loop */
@@ -86,10 +89,11 @@ declarations: /*empty*/
                 std::unordered_map<std::string, Symbol>::iterator tracer = symTable.find(name);
                 if (tracer != symTable.end()) {
                         // Variável já declarada, erro.
-                        std::cout << "Variable with same name already declared: " << name << "\n";
-                        semanticErrors++;
+                        std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Variable with same name already declared: " + name + "\n";
+                        CompileError newError(yylineno, errorMsg);
+                        compileErrors.push_back(newError);
+                        errors++;
                 } else {
-                        std::cout << "New variable: " << name << "\n";
                         Symbol newVar;
                         newVar.name = name;
                         newVar.value = 0;
@@ -97,6 +101,12 @@ declarations: /*empty*/
                         symTable.emplace(name, newVar);
                         variableCount++;
                 }
+        }
+        | INTEGER id_seq error '.' {
+                std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Bad variable name: " + __badToken + "\n";
+                CompileError newError(yylineno, errorMsg);
+                compileErrors.push_back(newError);
+                errors++;
         }
 ;
 
@@ -106,10 +116,11 @@ id_seq: /* empty */
                         std::unordered_map<std::string,Symbol>::iterator tracer = symTable.find(name);
                         if (tracer != symTable.end()) {
                                 // Variável já declarada, erro.
-                                std::cout << "Variable with same name already declared: " << name << "\n";
-                                semanticErrors++;
+                                std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Variable with same name already declared: " + name + "\n";
+                                CompileError newError(yylineno, errorMsg);
+                                compileErrors.push_back(newError);
+                                errors++;
                         } else {
-                                std::cout << "New variable: " << name << "\n";
                                 Symbol newVar;
                                 newVar.name = name;
                                 newVar.value = 0;
@@ -118,28 +129,36 @@ id_seq: /* empty */
                                 variableCount++;
                         }
                 }
+        | id_seq error ',' {
+                std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Bad variable name: " + __badToken + "\n";
+                CompileError newError(yylineno, errorMsg);
+                compileErrors.push_back(newError);
+                errors++;
+        }
 ;
 
 command_seq: {$$ = "";}
-        | command_seq command ';' {$$ = $1 + $2;}
+        | command_seq command {$$ = $1 + $2;}
 ;
 
-command: SKIP {$$ = "";}
-        | READ IDENTIFIER   {
+command: SKIP ';' {$$ = "";}
+        | READ IDENTIFIER ';'  {
                 std::string name = $2;
                 std::unordered_map<std::string,Symbol>::iterator tracer = symTable.find(name);
                 if (tracer == symTable.end()) {
                         // Variável não declarada, erro.
-                        std::cout << "Variable not declared: " << name << "\n";
-                        semanticErrors++;
+                        std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Variable not declared: " + name + "\n";
+                        CompileError newError(yylineno, errorMsg);
+                        compileErrors.push_back(newError);
+                        errors++;
                 }
-                if(!semanticErrors) {
+                if(!errors) {
                         // $$ = readcall(symTable, $2) + pushstack(); // Por que pushstack() aqui?
                         $$ = readcall(symTable, $2);
                 }
         }
-        | WRITE exp {
-                if(!semanticErrors)
+        | WRITE exp ';' {
+                if(!errors)
                 {
                         std::string code = $2.code; // Código gerado no cálculo da expressão.
                         if ($2.knownInCompileTime) {
@@ -165,15 +184,17 @@ command: SKIP {$$ = "";}
                         registerTracker.freeAllRegisters();
                 }
         }
-        | IDENTIFIER ASSGNOP exp    {
+        | IDENTIFIER ASSGNOP exp ';' {
                 std::string name = $1;
                 std::unordered_map<std::string,Symbol>::iterator tracer = symTable.find(name);
                 if (tracer == symTable.end()) {
                         // Variável não declarada, erro.
-                        std::cout << "Variable not declared: " << name << "\n";
-                        semanticErrors++;
+                        std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Variable not declared: " + name + "\n";
+                        CompileError newError(yylineno, errorMsg);
+                        compileErrors.push_back(newError);
+                        errors++;
                 }
-                if(!semanticErrors)
+                if(!errors)
                 {
                         std::string code = $3.code;
                         if ($3.knownInCompileTime) {
@@ -198,9 +219,9 @@ command: SKIP {$$ = "";}
                 }
                 registerTracker.freeAllRegisters();
         }
-        | IF exp THEN command_seq if_loop FI   {
+        | IF exp THEN command_seq if_loop FI ';' {
                 std::string if_cmd = "";
-                if(!semanticErrors)
+                if(!errors)
                 {
                         std::string branchnum = std::to_string(branchcount++);
                         // Armazena s0 anterior em s1 por enquanto.
@@ -242,10 +263,9 @@ command: SKIP {$$ = "";}
                 $$ = if_cmd;
                 registerTracker.freeAllRegisters();
         }
-
-        | WHILE exp DO command_seq END {
+        | WHILE exp DO command_seq END ';' {
                 std::string while_cmd = "";
-                if(!semanticErrors)
+                if(!errors)
                 {
                         std::string branchnum = std::to_string(branchcount++);
                         // Armazena s0 anterior em s1 por enquanto.
@@ -288,6 +308,20 @@ command: SKIP {$$ = "";}
                 }
                 $$ = while_cmd;
                 registerTracker.freeAllRegisters();
+        }
+        | IDENTIFIER ASSGNOP error ';' {
+                std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Bad expression\n";
+                CompileError newError(yylineno, errorMsg);
+                compileErrors.push_back(newError);
+                errors++;
+                yyclearin;
+        }
+        | error ';' {
+                std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Couldn't recognize command\n";
+                CompileError newError(yylineno, errorMsg);
+                compileErrors.push_back(newError);
+                errors++;
+                yyclearin;
         }
 ;
 
@@ -357,7 +391,7 @@ thr_exp: IDENTIFIER    {
                 if (tracer == symTable.end()) {
                         // Variável não declarada, erro.
                         std::cout << "Variable not declared: " << name << "\n";
-                        semanticErrors++;
+                        errors++;
                 }
                 $$ = $1;
         }
@@ -376,8 +410,10 @@ exp:    NUMBER {
                 std::unordered_map<std::string,Symbol>::iterator tracer = symTable.find(name);
                 if (tracer == symTable.end()) {
                         // Variável não declarada, erro.
-                        std::cout << "Variable not declared: " << name << "\n";
-                        semanticErrors++;
+                        std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Variable not declared: " + name + "\n";
+                        CompileError newError(yylineno, errorMsg);
+                        compileErrors.push_back(newError);
+                        errors++;
                 } else {
                         $$.knownInCompileTime = false;
                         $$.location = tracer->second.assemblyLabel;
@@ -394,12 +430,29 @@ exp:    NUMBER {
         | exp '/' exp   {$$ = processExpressions($1, $3, '/', registerTracker);}
         /* | exp '^' exp   {$$ = processExpressions($1, $3, $2, registerTracker);} */
         | '(' exp ')'   {$$ = $2;}
+        | exp error exp {
+                std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Unrecognized operation symbol: " + __badToken + "\n";
+                CompileError newError(yylineno, errorMsg);
+                compileErrors.push_back(newError);
+                errors++;
+                yyclearin;
+        }
+        | '(' error ')' {
+                std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Bad expression\n";
+                CompileError newError(yylineno, errorMsg);
+                compileErrors.push_back(newError);
+                errors++;
+                yyclearin;
+        }
 ;
 
 %%
 
 void yy::parser::error (const std::string& m) /* Called by yyparse on error */
 {
-        syntaticError++;
+        /* std::string errorMsg = "Error, line " + std::to_string(yylineno) + ": Fatal Syntax Error\n";
+        CompileError newError(yylineno, errorMsg);
+        compileErrors.push_back(newError); */
 	std::cerr << m << '\n';
+        errors++;
 }
