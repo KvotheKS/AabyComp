@@ -1,4 +1,5 @@
-// Programa errado. Variável declarada duas vezes.
+${ Programa errado.
+Variável declarada duas vezes. $}
 let
     integer foo, bar, boo, foo.
 in

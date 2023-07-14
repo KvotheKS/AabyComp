@@ -1,0 +1,10 @@
+let
+    integer foo, bar, boo.
+in
+    if -45 then
+        foo := -45;
+        attack the target;
+        foo := bar * 33 + 22 / 2 - boo;
+    else
+    fi;
+end

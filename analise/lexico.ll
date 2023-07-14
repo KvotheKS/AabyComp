@@ -5,9 +5,11 @@
   yy::parser::symbol_type yylex ()
 YY_DECL;
     std::string __immediate;
+    std::string __badToken;
 %}
 
 /* %option debug */
+%option yylineno
 
 digit  [0-9]
 lower_case [a-z]
@@ -42,7 +44,7 @@ end               return yy::parser::token::TOK_END;
 {basic_sep}       { ; }
 {number}          { __immediate = yytext; return yy::parser::token::TOK_NUMBER; }
 {identifier}      {return yy::parser::make_IDENTIFIER (yytext);}
-{other}           return yytext[0];
+{other}           {__badToken = yytext; return yytext[0];}
 <<EOF>>           return yy::parser::token::TOK_YYEOF;
 %%
 
